@@ -13,6 +13,25 @@ dixti dict                                        # what has been written about,
 dixti show 7c2a91b4                               # read one in full
 ```
 
+## Install
+
+Node 20+. No runtime dependencies.
+
+```bash
+git clone https://github.com/Brayton19/dixti.git
+cd dixti && npm install && npm link
+```
+
+`npm install` compiles the TypeScript; `npm link` puts `dixti` on your PATH. Putting it on PATH is
+not optional — when a note list is too large to print in full it tells the reader which command to
+run next, and that instruction has to name a binary that exists.
+
+> `npm install -g github:Brayton19/dixti` does **not** work: npm runs the build step for a global
+> git install without installing the dev dependencies it needs. Clone and link, or install a
+> packed tarball from a release.
+
+Uninstall with `npm unlink -g dixti`.
+
 The point is the loop: **search before you write.** An agent that checks first appends to what the
 team already knows instead of rediscovering it, and the store organises itself by topic.
 

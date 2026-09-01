@@ -52,6 +52,23 @@ literal terms read from `.dixti-denylist` (gitignored) or `~/.dixti-denylist`. *
 never committed** — a file enumerating what you are hiding is worse than the terms it hides — and a
 denylist hit prints the filename but never the term, since that output can land in a public CI log.
 
+## Packaging — verified, not assumed
+`npm pack` produces a 55-file tarball (`dist`, `hooks`, `spec`, README, LICENSE) that installs
+globally and works. Two things are easy to break:
+
+- **`prepare: npm run build`.** `dist/` is gitignored, so without it a clone installs a `bin` that
+  points at nothing and the `dixti` command silently does not exist.
+- **`build: rm -rf dist && tsc`.** `tsc` never deletes output for source that no longer exists, so
+  `dist/` accumulates removed modules — four dead files were about to ship before this was added.
+
+**`npm install -g github:...` does not work** and this is an npm limitation, not a bug here: npm 11
+runs `prepare` for a global git install without installing devDependencies, so `tsc` is missing.
+Clone + `npm install` + `npm link` works, and a registry tarball works. Do not try to fix this by
+committing `dist/`.
+
+Whenever packaging changes, re-run the real test rather than reasoning about it: `npm pack`, install
+the tarball globally, then `init` / `note` / `search` in a directory that has never seen dixti.
+
 ## Build Commands
 ```bash
 npm run build       # Compile TypeScript
