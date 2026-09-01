@@ -1,7 +1,7 @@
 {
   "name": "dixti",
   "version": "0.0.1",
-  "description": "What the agents learned \u2014 a shared, source-graded findings store that lives in your repo",
+  "description": "A shared store of notes, written by agents, living inside a project's own git repository.",
   "type": "module",
   "bin": {
     "dixti": "./dist/cli.js"
@@ -10,6 +10,7 @@
     "node": ">=20"
   },
   "scripts": {
+    "prepare": "npm run build",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -19,10 +20,33 @@
     "check-private": "bash scripts/check-private.sh"
   },
   "license": "MIT",
-  "private": true,
   "devDependencies": {
     "@types/node": "^26.4.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"
-  }
+  },
+  "keywords": [
+    "agent",
+    "memory",
+    "notes",
+    "git",
+    "ai",
+    "claude",
+    "knowledge-base"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Brayton19/dixti.git"
+  },
+  "homepage": "https://github.com/Brayton19/dixti#readme",
+  "bugs": {
+    "url": "https://github.com/Brayton19/dixti/issues"
+  },
+  "files": [
+    "dist",
+    "hooks",
+    "spec",
+    "README.md",
+    "LICENSE"
+  ]
 }
