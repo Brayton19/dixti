@@ -1,0 +1,34 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Build
+dist/
+*.js.map
+*.tsbuildinfo
+
+# Data / cache (project-specific — adjust as needed)
+data/cache/
+*.db
+*.sqlite
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# Claude local
+.claude/settings.local.json
+CLAUDE.local.md
+
+# dixti: derived index + replay output are never committed
+.agents/.index/
+scripts/out/
+
+# check-private: private terms, never committed
+.dixti-denylist

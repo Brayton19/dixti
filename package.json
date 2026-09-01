@@ -1,0 +1,28 @@
+{
+  "name": "dixti",
+  "version": "0.0.1",
+  "description": "What the agents learned \u2014 a shared, source-graded findings store that lives in your repo",
+  "type": "module",
+  "bin": {
+    "dixti": "./dist/cli.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run check-private && npm run typecheck && npm test && npm run build",
+    "dict": "node dist/cli.js dict .",
+    "check-private": "bash scripts/check-private.sh"
+  },
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  }
+}

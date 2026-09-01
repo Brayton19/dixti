@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push: { branches: [main] }
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      # Runs before anything else: a leak that reaches a public log is not undone by a failing build.
+      # CI has no denylist, so this is the generic layer only — home paths, emails, key material.
+      - name: check for private content
+        run: bash scripts/check-private.sh
+
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      # dixti reads its own store — a smoke test that the CLI works against real files on disk,
+      # not just against the pure layer the unit tests cover.
+      - name: dixti reads its own notes
+        run: node dist/cli.js dict .
