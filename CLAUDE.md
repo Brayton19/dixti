@@ -21,19 +21,17 @@ dixti init              # scaffold .agents/notes/ and the union-merge line
 Spec: `spec/FORMAT.md` — read it before touching `src/`.
 
 
-## Scope — read this before adding anything
+## Scope
 
-**Reset 2026-09-01.** The project had grown a provenance layer — evidence
-tiers, anchors decaying against git history, an append-only ledger, link types, a weekly curator,
-usage logging, a doc importer, a ten-rule linter. All removed. It was a second product built on a
-memory system that did not exist: 1,774 lines of source with **zero lines that wrote a note**.
+dixti is deliberately small. The question for anything new is: **does it directly serve search,
+write, or multi-agent sharing?** If it does not, it belongs in a different tool.
 
-The removed design was not bad and parts of it were measured. It is preserved in git history and in
-the maintainer's own project notes. **Do not reintroduce any of it** without a concrete failure of
-the simple version that demands it. If notes turn out to be wrong or stale in a way that costs
-something real, the first thing to come back is evidence tiers — one derived character.
+Four invariants hold everywhere, and a change that breaks one has to say so:
 
-The bar for any new feature: *does it directly serve search, write, or multi-agent sharing?*
+- **Notes are appended, never rewritten in place** — this is what makes `merge=union` safe.
+- **Unknown metadata keys are preserved, not rejected**, so a newer store parses in an older version.
+- **Nothing derived is committed** — no index, no cache, no build output.
+- **Host adapters contain no logic.** If one host seems to need some, it belongs in `src/`.
 
 ## Tech Stack
 - Runtime: Node.js 20+, TypeScript (ESM). **Zero runtime dependencies.**
@@ -59,7 +57,7 @@ globally and works. Two things are easy to break:
 - **`prepare: npm run build`.** `dist/` is gitignored, so without it a clone installs a `bin` that
   points at nothing and the `dixti` command silently does not exist.
 - **`build: rm -rf dist && tsc`.** `tsc` never deletes output for source that no longer exists, so
-  `dist/` accumulates removed modules — four dead files were about to ship before this was added.
+  `dist/` accumulates output for modules that no longer exist, and it ships in the tarball.
 
 **`npm install -g github:...` does not work** and this is an npm limitation, not a bug here: npm 11
 runs `prepare` for a global git install without installing devDependencies, so `tsc` is missing.
@@ -93,7 +91,6 @@ src/cli.ts        argument handling and exit codes — the only module that does
 hooks/            host adapters + README.md, the integration guide. Adapters reshape strings
                   and contain no logic; anything cleverer belongs in src/capture.ts.
 tests/            69 tests, all against the pure layer
-notes/            dated measurement write-ups (several describe removed features — kept as evidence)
 .agents/notes/    dixti's own notes
 ```
 
@@ -171,29 +168,13 @@ the same topic merged cleanly and all notes survived. Capture hook verified acro
 fires once, silent when throttled, **silent after a note was written**, fires again when none was.
 55 tests, typecheck clean, zero runtime dependencies.
 
-## TODO
-1. ~~Capture at session end.~~ **DONE 2026-09-01** — `hooks/session-stop.sh`. The loop now closes:
-   the start hook injects the topic list, the stop hook asks for a note.
-2. **A near-duplicate check that runs before the write, not after.** `dixti note` currently writes,
-   then reports similar notes. The capture prompt tells the agent to search first, which covers the
-   common case, but nothing enforces it.
-3. ~~Fix the collapsed view.~~ **DONE 2026-09-01** — over budget, each topic now shows its first few
-   headings plus `… N more` instead of a bare count. A name carries almost nothing (measured: only
-   12% of a topic's own notes share a word with its name); three real headings say what a name
-   cannot. 540 notes render in ~850 tokens against a 4,000 budget, so the signal is nearly free.
-4. ~~Author the topic names.~~ **DONE 2026-09-01** — `src/topic.ts`. `dixti note` now says what is
-   wrong with a topic name (uninformative, dated, a near-duplicate of an existing topic, or really a
-   heading) and **never refuses**: the note is worth more than the objection, and a tool that blocks
-   writes gets worked around. `dixti dict --adapt` says its topics came from file paths rather than
-   from anyone choosing them.
-5. **Author the topic names, part two:** nothing yet helps an existing store *merge* two topics that
-   should be one. Notes are append-only, so a merge is a rewrite — deliberately unsolved. ~~Measure the collapsed two-step.~~ **MEASURED 2026-09-01** —
-   `notes/twostep-test-2026-09-01.md`. Above budget the agent picks a topic before seeing any
-   heading, and on a 447-note corpus the lexical floor for that is **0/15** on paraphrase: not one query shares a
-   word with the name of the topic holding its answer. Topic names are only **12% self-describing**;
-   twelve topics score 0%. So the two-step has no mechanical fallback and the names actively
-   handicap the semantic one. Fix, which costs nothing since `--topic` already takes any string:
-   push capture toward a small set of *meaningful* topics, and treat path-derived topics as the
-   weakest part of `--adapt`. **Still unmeasured: the realistic rate**, which needs an agent with
-   fresh context — a process that has read the corpus grading itself on it measures nothing.
-6. Nothing else is planned. Add only against the bar in § Scope.
+## Open problems
+
+1. **`dixti note` reports near-duplicates after writing, not before.** The capture prompt tells the
+   agent to search first, which covers the common case, but nothing enforces it.
+2. **Merging two topics that should be one.** Notes are append-only, so a merge is a rewrite. No good
+   answer yet.
+3. **Choosing a topic from names alone.** Above a token budget the reader sees topic names plus a few
+   sample headings rather than every heading. How well that works in practice is not characterised.
+4. **Search misses on vocabulary substitution.** It is lexical: a heading sharing no word with the
+   question is invisible. Better headings are half the answer; the other half is open.

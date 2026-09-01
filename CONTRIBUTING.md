@@ -1,26 +1,14 @@
 # Contributing
 
-dixti is early. Bug reports and small fixes are very welcome; large features probably are not, and
-the reason is worth reading before you spend an evening on one.
-
-## The bar for new features
-
-An earlier version of dixti had evidence tiers, anchors that decayed against git history, an
-append-only event ledger, typed links between notes, a weekly curator agent, usage logging, a
-documentation importer and a ten-rule linter. It was 1,774 lines of source with **zero lines that
-wrote a note** — the thing it existed to do. All of it was deleted.
-
-So the bar for anything new is: **does it directly serve search, write, or multi-agent sharing?**
-
-If you want to propose something that fails that test, open an issue describing the *problem* first.
-A concrete failure of the simple version is a much better argument than a design.
+dixti is early. Bug reports and small fixes are very welcome, and there is a list of open problems
+below.
 
 ## Getting set up
 
 ```bash
 git clone https://github.com/Brayton19/dixti.git
 cd dixti && npm install && npm link
-npm run check          # check-private → typecheck → 90 tests → build
+npm run check          # check-private → typecheck → tests → build
 ```
 
 `npm run check` is what CI runs. Run it before opening a pull request.
@@ -28,8 +16,8 @@ npm run check          # check-private → typecheck → 90 tests → build
 ## How the code is arranged
 
 Everything except `src/cli.ts` is **pure** — no filesystem, no git, no clock. That is why every
-behaviour is testable without a temp directory or a fixture repo, and it is the single property most
-worth preserving. If a change needs `fs` inside `search.ts` or `note.ts`, the design is wrong.
+behaviour is testable without a temp directory or a fixture repo, and it is the property most worth
+preserving. If a change needs `fs` inside `search.ts` or `note.ts`, there is usually a better shape.
 
 ```
 spec/FORMAT.md    the on-disk contract — read before touching src/
@@ -46,16 +34,25 @@ hooks/            host adapters. They reshape strings and contain no logic.
 
 **The format is the product surface.** Everything else is an afternoon to rewrite; notes already
 written into other people's repositories are not. Changes to `spec/FORMAT.md` need a version bump and
-a reason.
+a migration story for stores that already exist.
 
-## Things that will get a patch rejected
+## Invariants
 
-- **Editing a note in place.** Notes are appended and never rewritten. That is what makes
-  `merge=union` safe; break it and concurrent writes corrupt silently instead of conflicting loudly.
-- **Committing derived state.** No index, no cache, no build output in git.
-- **Logic in a host adapter.** If one host seems to need it, it belongs in `src/` where every host
-  gets it.
-- **A test that needs a fixture repo** when an injected value would do.
+Four things hold everywhere, and a change that breaks one needs to say so explicitly:
+
+- **Notes are appended, never rewritten in place.** This is what makes `merge=union` safe. Break it
+  and concurrent writes corrupt silently instead of conflicting loudly.
+- **Unknown metadata keys are preserved, not rejected**, so a store written by a newer version still
+  parses in an older one.
+- **Nothing derived is committed** — no index, no cache, no build output.
+- **Host adapters contain no logic.** If one host seems to need some, it belongs in `src/` where
+  every host gets it.
+
+## Proposing a feature
+
+Open an issue describing the *problem* before writing the code. dixti is deliberately small, and the
+question for anything new is whether it directly serves search, write, or multi-agent sharing. A
+concrete case where the current design falls down is a much stronger argument than a design.
 
 ## Privacy
 
@@ -63,29 +60,26 @@ a reason.
 private key material, plus any term in a personal denylist (`.dixti-denylist`, gitignored — a
 committed file listing what you are hiding is worse than the terms it hides).
 
-This exists because a notes tool accumulates fragments of whatever it was tested against, and **git
-history is permanent**. If the check fires on your branch, fix the content rather than the check.
+A notes tool accumulates fragments of whatever it is tested against, and git history is permanent. If
+the check fires on your branch, fix the content rather than the check.
 
-## Known rough edges
+## Open problems
 
-Good places to start, roughly easiest first:
+Roughly easiest first:
 
 - **`npm install -g github:...` does not work.** npm runs the build for a global git install without
-  installing devDependencies. A packed release asset would fix it. Do **not** fix it by committing
-  `dist/`.
-- **Search misses on vocabulary substitution.** It is lexical: a note whose heading shares no word
-  with the question is invisible. Measured at 6/15 on paraphrased queries. Better *headings* are
-  half the fix and cost nothing — see if the capture prompt can push harder before reaching for an
-  index.
+  installing devDependencies. A packed release asset would fix it. Committing `dist/` would not — it
+  trades a one-line install for permanent diff noise and a build that can silently go stale.
+- **Search misses on vocabulary substitution.** It is lexical, so a note whose heading shares no word
+  with the question is invisible. Better headings are half the answer and cost nothing; the other
+  half is an open design question.
 - **`dixti note` reports near-duplicates after writing, not before.** Prompting first is better.
-- **Merging two topics that should be one.** Nothing helps with this today, and notes being
-  append-only makes it a rewrite. Unsolved on purpose; a good design here would be welcome.
-- **The topic two-step is unmeasured with a real agent.** Above a token budget the reader picks a
-  topic before seeing any heading. The lexical floor for that is 0/15; how far above it a model
-  actually gets is an open number. `scripts/twostep-test.mjs` is the harness.
+- **Merging two topics that should be one.** Notes are append-only, so a merge is a rewrite. There is
+  no good answer yet and a design would be welcome.
+- **Choosing a topic from names alone.** Above a token budget the reader sees topic names and a few
+  sample headings rather than every heading. How well that works in practice is not yet characterised.
 
 ## Commit messages
 
 Say what changed and why it mattered, in prose. If a measurement drove the change, put the number in
-the message — several of the decisions in this repo are only defensible because the number is
-recorded somewhere a reader can find it.
+the message.

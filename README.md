@@ -5,9 +5,9 @@
 A shared store of notes that lives in your project's own git repository. No server, no database, no
 account — a directory of reviewable markdown and a CLI that reads it.
 
-Your agent spends twenty minutes discovering that refunds are double-counted in the ledger. Tomorrow,
-in a new session with no memory, it discovers the same thing again. So does your colleague's agent.
-dixti is where that goes instead.
+Your agent spends twenty minutes working out that refunds are double-counted in the ledger. Tomorrow,
+in a new session with no memory, it works it out again. So does your colleague's agent. dixti is
+where that goes instead.
 
 ```bash
 dixti search "refund double counting"    # has anyone worked this out already?
@@ -46,8 +46,6 @@ cd your-project
 dixti init          # creates .agents/notes/ and one .gitattributes line
 ```
 
-Five commands, and deliberately no others:
-
 | | |
 |---|---|
 | `dixti search <words>` | is there already a note on this? |
@@ -85,7 +83,7 @@ text and the decision both live in dixti, so **every host asks the same thing un
 conditions** and an adapter is ~30 lines that reshape a string.
 
 [`hooks/`](hooks/) has the Claude Code pair and [an integration guide](hooks/README.md) for anything
-else. Adapters that contain logic are doing too much.
+else.
 
 ## Why in the repo
 
@@ -121,26 +119,22 @@ dixti search "rate limiting" --adapt ~/notes
 Topics are derived from file paths in this mode, and dixti says so — a derived topic name often does
 not describe what is inside it.
 
-## What it deliberately does not do
+## How search works
 
-No index, no embeddings, no ranking model, no links between notes, no confidence scores, no author
-field. Search is lexical and in memory; a few thousand headings scan faster than an index opens.
+Lexical and in memory. A note scores on where your words appear — heading, then topic, then body —
+scaled by how much of the query it covers. There is no index to build, invalidate or commit, and a
+few thousand headings scan faster than an index opens.
 
-This is not minimalism for its own sake — an earlier version had most of it, and it was cut. See
-[`spec/FORMAT.md`](spec/FORMAT.md) §5 for what was removed and why, and [`notes/`](notes/) for the
-measurements behind the decisions:
-
-- one-line headings beat keyword search **14/15 vs 6/15** on paraphrased queries
-- importing from existing docs yields **0–3 notes per repo** and does not solve cold start
-- topic names derived from file paths share a word with only **12%** of their own notes
+Search is a filter, not an oracle: it exists so an agent can decide *add to an existing topic or
+start a new one*, and the agent reads the results and judges. When a store is small enough to list in
+full, `dixti dict` shows every heading and no search is needed at all.
 
 ## Status
 
 Early, and useful. All five commands work; 90 tests; zero runtime dependencies. The format is
 `0.3.0-draft` and may still change — [`spec/FORMAT.md`](spec/FORMAT.md) is the contract.
 
-Rough edges are listed in [CONTRIBUTING.md](CONTRIBUTING.md), which is also where to start if you
-want to help. [CHANGELOG.md](CHANGELOG.md) records what each decision was based on.
+[CONTRIBUTING.md](CONTRIBUTING.md) has the development setup and the current rough edges.
 
 ## Licence
 

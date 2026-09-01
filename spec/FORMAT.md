@@ -1,16 +1,10 @@
 # dixti format specification
 
-**Version:** `0.3.0-draft` · **Status:** not yet stable · **Last changed:** 2026-09-01
-**Implemented by:** `src/parse.ts` (§2), `src/note.ts` (§3), `src/search.ts` (§4), with 53 tests.
+**Version:** `0.3.0-draft` · **Status:** not yet stable
+**Implemented by:** `src/parse.ts` (§2), `src/note.ts` (§3), `src/search.ts` (§4).
 
-> **0.3.0 — the reset.** 0.1 and 0.2 specified a provenance layer on top of the store: evidence
-> tiers, anchors that decay against git history, an append-only ledger of events, link types, and a
-> weekly curator. All of it is **removed**. It was a second product built on a memory system that did
-> not exist yet — 1,774 lines of source with zero lines that wrote a note.
->
-> A note is now a heading, a topic, a date and a body. Nothing else. The removed design is preserved
-> in git history; do not reintroduce any of it without a
-> concrete failure of the simple version that demands it.
+This is the contract for notes on disk. It is the one part of dixti that is expensive to change,
+because notes written into a repository outlive any version of the tool that wrote them.
 
 ---
 
@@ -144,21 +138,26 @@ nothing matches, so a script can branch on "nothing written about this yet".
 
 ---
 
-## 5. What the format deliberately does not contain
+## 5. What a note does not carry
 
-| Not here | Why |
+The format is small on purpose. A field that is not in it cannot go stale, cannot be filled in
+carelessly, and cannot become something a reader has to interpret.
+
+| Not in the format | Why |
 |---|---|
-| A confidence or quality field | Self-assessment. If it matters, it belongs in the body where a reader can weigh it. |
-| An author field | `git blame` already answers it, and building it in invites grading colleagues. |
-| Links between notes | Every link type was removed in 0.3.0. A wrong edge is worse than no edge, and the reading agent can see the whole topic list anyway. |
+| A confidence or quality field | Self-assessment. If confidence matters, it belongs in the body where a reader can weigh the reasoning. |
+| An author field | `git blame` already answers it, and a field invites grading colleagues. |
+| Links between notes | A wrong edge is worse than no edge, and a reader can see the whole topic list. |
 | An index | Derived state. Scanning is fast enough, and a committed index drifts from the notes. |
-| A ledger, tiers, anchors, decay | The provenance layer, removed in 0.3.0. See the header. |
+
+Anything added here has to survive the same test: notes already written must keep parsing, which is
+why §2.2 requires unknown keys to be preserved rather than rejected.
 
 ---
 
 ## 6. Validation
 
-There is no linter. The three properties that matter are enforced by construction:
+Three properties are enforced by construction rather than by a linter:
 
 - **Ids are unique** — `dixti note` generates against the ids already in the store.
 - **Notes parse** — anything that does not parse as a note is simply not one; a malformed meta line
