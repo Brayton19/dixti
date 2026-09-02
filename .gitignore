@@ -27,7 +27,6 @@ data/cache/
 CLAUDE.local.md
 
 # dixti: derived index + replay output are never committed
-.agents/.index/
 scripts/out/
 
 # check-private: private terms, never committed

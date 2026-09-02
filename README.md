@@ -134,7 +134,8 @@ full, `dixti dict` shows every heading and no search is needed at all.
 Early, and useful. All five commands work; 90 tests; zero runtime dependencies. The format is
 `0.3.0-draft` and may still change — [`spec/FORMAT.md`](spec/FORMAT.md) is the contract.
 
-[CONTRIBUTING.md](CONTRIBUTING.md) has the development setup and the current rough edges.
+[CONTRIBUTING.md](CONTRIBUTING.md) has the development setup and the current rough edges;
+[CHANGELOG.md](CHANGELOG.md) has what is in this release.
 
 ## Licence
 

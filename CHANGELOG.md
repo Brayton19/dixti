@@ -3,7 +3,7 @@
 The format version and the package version move independently. The format version is the one that
 matters: it is the contract for notes already written into other people's repositories.
 
-## Unreleased — format `0.3.0-draft`
+## 0.1.0 — format `0.3.0-draft`
 
 First public release.
 
