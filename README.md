@@ -43,8 +43,14 @@ Uninstall with `npm unlink -g dixti`.
 
 ```bash
 cd your-project
-dixti init          # creates .agents/notes/ and one .gitattributes line
+dixti init
 ```
+
+That creates `.agents/notes/`, adds one line to `.gitattributes`, and **appends instructions to
+`AGENTS.md`** so your agents know the store exists and how to use it — it appends below whatever is
+already in that file, and re-running never duplicates it. If your tools read something else
+(`CLAUDE.md`, `.cursorrules`, a system prompt), `dixti instructions` prints the same block to paste
+wherever it belongs.
 
 | | |
 |---|---|
@@ -53,6 +59,7 @@ dixti init          # creates .agents/notes/ and one .gitattributes line
 | `dixti dict` | what has been written about, by topic |
 | `dixti show <id>` | read one in full |
 | `dixti capture` | ask an agent, at session end, whether to write one |
+| `dixti instructions` | the agent-facing block, for a file `init` did not write |
 
 Notes are plain markdown you can read and review in a pull request:
 
@@ -131,7 +138,7 @@ full, `dixti dict` shows every heading and no search is needed at all.
 
 ## Status
 
-Early, and useful. All five commands work; 90 tests; zero runtime dependencies. The format is
+Early, and useful. Every command works; 101 tests; zero runtime dependencies. The format is
 `0.3.0-draft` and may still change — [`spec/FORMAT.md`](spec/FORMAT.md) is the contract.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) has the development setup and the current rough edges;

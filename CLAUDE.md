@@ -83,6 +83,7 @@ src/search.ts     notes + query → ranked hits. PURE. Implements §4.
 src/note.ts       a new note → the file write it implies. PURE. Implements §3.
 src/dict.ts       notes → the topic list. PURE.
 src/capture.ts    should we ask for a note, and what to ask. PURE. The host-neutral write trigger.
+src/instructions.ts  what an agent needs to know to use the store. PURE. Written into AGENTS.md by init.
 src/adapt.ts      plain markdown → notes, for a corpus with no dixti metadata. PURE.
 src/init.ts       plans the scaffold as a list of writes. PURE.
 src/store.ts      reads .agents/notes/ off disk

@@ -19,6 +19,9 @@ First public release.
 - `dixti show <id>` — one note in full.
 - `dixti capture` — prints the instruction asking an agent to write a note, or prints nothing and
   exits 1 when asking is not worth it. The host-neutral write trigger.
+- `dixti instructions` — prints the agent-facing block explaining the store and the search-before-write
+  habit. `dixti init` appends it to `AGENTS.md` automatically, below anything already there, and
+  skips it if already present.
 - `--adapt <dir>` on `dict`, `search` and `show` reads any tree of `###`-headed markdown, so dixti is
   useful against notes you already have before anything has been captured.
 

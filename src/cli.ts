@@ -7,6 +7,7 @@ import { dirname, join, relative } from "node:path";
 
 import { adaptFile } from "./adapt.js";
 import { capturePrompt, shouldCapture } from "./capture.js";
+import { agentInstructions } from "./instructions.js";
 import { buildDictionary, renderDictionary, topicOf } from "./dict.js";
 import { newId } from "./id.js";
 import { planInit } from "./init.js";
@@ -25,6 +26,7 @@ usage:
   dixti note   --topic <name> --heading <text> [--body <text>]
   dixti capture [--session <id>] [--throttle N] [--force] [--json]
   dixti init   [dir]
+  dixti instructions
 
   dict           every note as one line, grouped by topic
   search         is there already a note about this?
@@ -33,7 +35,8 @@ usage:
   capture        print the instruction that asks an agent to write a note, if it is worth asking.
                  Exits 1 and prints nothing when it is not. Wire this into whatever your agent
                  runs at session end — see hooks/README.md. --json reports the decision instead.
-  init           scaffold .agents/notes/ and the union-merge line
+  init           scaffold .agents/notes/, the union-merge line, and AGENTS.md instructions
+  instructions   print the agent instructions, to paste into whatever file your tools read
 
 reading another corpus (any tree of ### markdown, e.g. an existing notes repo):
   --adapt <dir>       read that instead of this repo's store
@@ -96,10 +99,13 @@ function cmdInit(args: string[]): number {
     return 1;
   }
 
-  const gitattributes = existsSync(join(dir, ".gitattributes"))
-    ? readFileSync(join(dir, ".gitattributes"), "utf8")
-    : null;
-  const plan = planInit({ gitattributes });
+  const read = (f: string): string | null =>
+    existsSync(join(dir, f)) ? readFileSync(join(dir, f), "utf8") : null;
+  const plan = planInit({
+    gitattributes: read(".gitattributes"),
+    agentsMd: read("AGENTS.md"),
+    bin: process.env["DIXTI_BIN_NAME"] ?? "dixti",
+  });
 
   for (const d of plan.dirs) mkdirSync(join(dir, d), { recursive: true });
   for (const w of plan.writes) {
@@ -111,7 +117,15 @@ function cmdInit(args: string[]): number {
   }
   for (const note of plan.skipped) process.stdout.write(`  ok       ${note}\n`);
 
-  process.stdout.write(`\nStore ready. Write the first note with \`dixti note --topic <name> --heading <text>\`.\n`);
+  process.stdout.write(
+    `\nStore ready. Your agents now have instructions in AGENTS.md; if your tools read a different\n` +
+      `file, \`dixti instructions\` prints the same block to paste in.\n`,
+  );
+  return 0;
+}
+
+function cmdInstructions(): number {
+  process.stdout.write(agentInstructions(process.env["DIXTI_BIN_NAME"] ?? "dixti"));
   return 0;
 }
 
@@ -319,6 +333,8 @@ function main(argv: string[]): number {
       return cmdCapture(rest);
     case "init":
       return cmdInit(rest);
+    case "instructions":
+      return cmdInstructions();
     default:
       process.stderr.write(`dixti: unknown command "${command}"\n\n${USAGE}`);
       return 1;
