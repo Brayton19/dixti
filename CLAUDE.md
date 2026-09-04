@@ -21,6 +21,17 @@ dixti init              # scaffold .agents/notes/ and the union-merge line
 Spec: `spec/FORMAT.md` — read it before touching `src/`.
 
 
+## What it is for
+
+Two questions, and every design decision should trace back to one of them:
+
+1. **"I want my agent to use your thing — not use your agent."** dixti is not an agent. Anything that
+   assumes a particular model, editor or host is in the wrong place; the host integration is a
+   translation layer with no logic in it.
+2. **"Someone leaves — who owns what their agent worked out?"** A finding is markdown in the
+   company's own repository, reviewed in a pull request. No export, no account to transfer, no seat
+   to reassign. Anything that puts state outside the repo attacks this directly.
+
 ## Scope
 
 dixti is deliberately small. The question for anything new is: **does it directly serve search,

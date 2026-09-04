@@ -19,6 +19,28 @@ dixti note --topic billing \
 The whole point is the order: **search before you write.** An agent that checks first adds to what
 the team already knows instead of rediscovering it.
 
+## Two questions this was built to answer
+
+**"I want my agent to use your thing — not use your agent."**
+
+dixti is not an agent and has no ambition to become one. It is a directory and six commands. Keep
+your model, your editor, your prompts, your workflow — point whatever you already use at
+`dixti search` and `dixti note`. The instruction text lives in dixti so that every tool asks the same
+thing under the same conditions, but nothing in it assumes which agent is reading. A host
+integration is about thirty lines that reshape a string, and if yours needs more than that, the
+missing piece belongs in dixti where every host gets it.
+
+**"Someone leaves. Who owns what their agent worked out?"**
+
+Today, usually nobody. It is in a session transcript, a local memory file, or a vendor account tied
+to a personal login — and it walks out with them. Six months of an agent learning your codebase
+becomes six months the next person repeats.
+
+dixti's answer is deliberately boring: a finding is markdown, committed to the repository the company
+already owns, reviewed in a pull request like anything else. There is no export, no account to
+transfer, no seat to reassign. Offboarding is a no-op, because there was never anything separate to
+hand over.
+
 ---
 
 ## Install
