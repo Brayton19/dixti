@@ -19,7 +19,7 @@ dixti note --topic billing \
 The whole point is the order: **search before you write.** An agent that checks first adds to what
 the team already knows instead of rediscovering it.
 
-## Two questions this was built to answer
+## Two principles this was built to address
 
 **"I want my agent to use your thing — not use your agent."**
 
