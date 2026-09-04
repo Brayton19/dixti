@@ -30,7 +30,7 @@ thing under the same conditions, but nothing in it assumes which agent is readin
 integration is about thirty lines that reshape a string, and if yours needs more than that, the
 missing piece belongs in dixti where every host gets it.
 
-**"Someone leaves. Who owns what their agent worked out?"**
+**"When Someone leaves the company or is on holiday. Who owns what their agent worked out?"**
 
 Today, usually nobody. It is in a session transcript, a local memory file, or a vendor account tied
 to a personal login — and it walks out with them. Six months of an agent learning your codebase
