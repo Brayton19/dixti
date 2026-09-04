@@ -82,6 +82,7 @@ wherever it belongs.
 | `dixti show <id>` | read one in full |
 | `dixti capture` | ask an agent, at session end, whether to write one |
 | `dixti instructions` | the agent-facing block, for a file `init` did not write |
+| `dixti topic merge a b` | maintenance: fold one topic name into another |
 
 Notes are plain markdown you can read and review in a pull request:
 
@@ -96,6 +97,59 @@ Not a reversal. A refund appears as `kind='refund'` with a **positive** amount, 
 **The heading is the product.** It is the only line most readers ever see — in the topic list and in
 every search result — so write it as a sentence that states the finding, not a label. "Billing notes"
 is not a heading; the one above is.
+
+## When the note is already there
+
+The point of a shared store is that the same thing does not get worked out twice. So `dixti note`
+checks before it writes, and stops when your note looks like one already in the store:
+
+```
+  NOT WRITTEN — this looks like a note the store already has (0.65):
+
+    5b0ad9c0  [billing]  Refunds re-enter the ledger as a second positive row
+
+  Nothing was lost. Your note is held as ea19eb64. Read the existing one first:
+
+    dixti show 5b0ad9c0
+
+  Then pick one:
+
+    dixti note --resume ea19eb64 --supersedes 5b0ad9c0
+        they are one finding — write yours and retire that note
+
+    dixti note --resume ea19eb64 --anyway
+        they are different findings that happen to share wording
+```
+
+**Nothing is thrown away when it stops.** The note is held under a handle and re-offered, which is
+what makes stopping safe: bodies usually arrive on stdin at the end of a session, so a rejected
+write with nowhere to land would mean the note is simply never written.
+
+`--supersedes` consolidates without rewriting anything. The new note records the id it replaces; the
+old note stays exactly where it is on disk. It stops appearing in `dixti dict` and `dixti search`,
+and `dixti show <old-id>` still resolves it and points at what replaced it — so an id in an old
+commit message keeps working.
+
+**It will sometimes stop you when it should not.** Measured over a real 467-note corpus it stops
+about one write in 27, and roughly one in four of those is a true duplicate; the rest are the same
+analysis applied to a different subject, which reads almost identically. That trade is deliberate.
+Lexical similarity cannot tell those apart — you can, in one command — and a duplicate that slips
+through costs every future reader, while a false stop costs you `--anyway`.
+
+## Two names for one subject
+
+Topics drift: someone writes `billing`, someone else writes `billings`, and neither half looks
+complete. That is not a duplicate-note problem, so `--supersedes` is the wrong tool for it.
+
+```bash
+dixti topic merge billings billing        # dry run: shows exactly what would move
+dixti topic merge billings billing --yes  # do it
+```
+
+Every id, heading, body and date is preserved — only the topic changes. This is the **one command in
+dixti that rewrites files**, so it is fenced: it refuses on a dirty `.agents/notes` tree or outside a
+git repository, so the whole operation always lands in its own commit and `git checkout` undoes it.
+Never call it from an agent.
 
 ## Wire it into your agent
 
@@ -133,7 +187,11 @@ Notes are **appended, never rewritten in place**, and `dixti init` writes:
 ```
 
 So two agents writing the same topic on different branches merge cleanly instead of conflicting.
-That is the whole multi-agent design, and it is why nothing in dixti ever edits a note.
+That is the whole multi-agent design, and it is why nothing on the write path ever edits a note —
+consolidating two notes adds a `supersedes` id to the new one rather than touching the old.
+
+`dixti topic merge` is the single exception and is not on that path: it is maintenance, run by a
+person, gated on a clean git tree.
 
 ## Reading notes you already have
 
@@ -158,10 +216,14 @@ Search is a filter, not an oracle: it exists so an agent can decide *add to an e
 start a new one*, and the agent reads the results and judges. When a store is small enough to list in
 full, `dixti dict` shows every heading and no search is needed at all.
 
+Search will miss a note whose heading shares no word with your question, which is why the headings
+matter so much. Catching a duplicate at write time is a **different** problem and uses a different
+function: there is no query to half-remember, because the thing being compared is the whole note.
+
 ## Status
 
-Early, and useful. Every command works; 101 tests; zero runtime dependencies. The format is
-`0.3.0-draft` and may still change — [`spec/FORMAT.md`](spec/FORMAT.md) is the contract.
+Early, and useful. Every command works; 149 tests; zero runtime dependencies. The format is
+`0.4.0-draft` and may still change — [`spec/FORMAT.md`](spec/FORMAT.md) is the contract.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) has the development setup and the current rough edges;
 [CHANGELOG.md](CHANGELOG.md) has what is in this release.

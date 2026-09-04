@@ -12,6 +12,8 @@ export interface Meta {
   topic: string | null;
   /** ISO date the note was written. */
   date: string | null;
+  /** Ids of notes this one consolidates and replaces. Empty when it replaces nothing. */
+  supersedes: string[];
   /** Keys this version does not know about, preserved verbatim. */
   unknown: Record<string, string>;
   /** 1-indexed line of the meta comment; null when the note has none. */
@@ -36,7 +38,7 @@ const META_COMMENT = /^<!--\s*dx\s+(.*?)\s*-->\s*$/;
 const FENCE = /^\s*(```+|~~~+)/;
 
 function emptyMeta(): Meta {
-  return { topic: null, date: null, unknown: {}, line: null };
+  return { topic: null, date: null, supersedes: [], unknown: {}, line: null };
 }
 
 /**
@@ -53,6 +55,9 @@ export function parseMeta(raw: string, line: number): Meta {
     const value = token.slice(eq + 1);
     if (key === "topic") meta.topic = value;
     else if (key === "date") meta.date = value;
+    // Comma-separated because values may not contain whitespace (§2.2) and one consolidation can
+    // replace several notes at once.
+    else if (key === "supersedes") meta.supersedes = value.split(",").map((x) => x.trim()).filter(Boolean);
     else meta.unknown[key] = value;
   }
   return meta;
@@ -134,6 +139,7 @@ export function renderNote(note: Note): string {
   const meta = [
     note.meta.topic ? `topic=${note.meta.topic}` : null,
     note.meta.date ? `date=${note.meta.date}` : null,
+    note.meta.supersedes.length ? `supersedes=${note.meta.supersedes.join(",")}` : null,
     ...Object.entries(note.meta.unknown).map(([k, v]) => `${k}=${v}`),
   ].filter(Boolean);
 

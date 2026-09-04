@@ -1,6 +1,6 @@
 {
   "name": "dixti",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A shared store of notes, written by agents, living inside a project's own git repository.",
   "type": "module",
   "bin": {
