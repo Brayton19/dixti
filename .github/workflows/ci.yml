@@ -9,6 +9,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # gitleaks needs history, not just the tip: a secret removed in a later commit is still
+          # public in the one that added it, which is the whole reason to scan at all.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -16,9 +20,37 @@ jobs:
           cache: npm
 
       # Runs before anything else: a leak that reaches a public log is not undone by a failing build.
-      # CI has no denylist, so this is the generic layer only — home paths, emails, key material.
+      #
+      # The denylist of private literal terms cannot live in the repo — a file enumerating what you
+      # are hiding is worse than the terms it hides — so CI reads it from a secret and writes it
+      # outside the work tree. Secrets are not exposed to pull requests from forks, so that case
+      # degrades to the generic layer; a push to main must never degrade silently, because that is
+      # the path by which anything reaches the public repo.
       - name: check for private content
-        run: bash scripts/check-private.sh
+        env:
+          DENYLIST: ${{ secrets.DIXTI_DENYLIST }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ -n "$DENYLIST" ]; then
+            printf '%s\n' "$DENYLIST" > "$RUNNER_TEMP/denylist"
+            export DIXTI_DENYLIST="$RUNNER_TEMP/denylist"
+          elif [ "$EVENT" = "push" ]; then
+            echo "::error::DIXTI_DENYLIST secret is not set. On a public repo the private-term layer"
+            echo "::error::would skip in silence, which is the failure this check exists to prevent."
+            exit 1
+          else
+            echo "::notice::No denylist available (expected for a fork PR) — generic checks only."
+          fi
+          bash scripts/check-private.sh
+
+      # Catches the class the literal patterns above cannot: high-entropy strings and provider key
+      # formats nobody thought to write a rule for. Needs no secret, so it protects fork PRs too.
+      - name: scan history for credentials
+        run: |
+          VERSION=8.30.1
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git . --redact --no-banner
 
       - run: npm ci --no-audit --no-fund
       - run: npm run typecheck
