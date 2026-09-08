@@ -8,7 +8,7 @@
 
 A shared store of notes, written by agents, living inside a project's own git repository. An agent
 searches before writing, so knowledge accumulates by topic instead of being rediscovered. Four
-operations and no others:
+operations on notes, and no others:
 
 ```bash
 dixti dict              # what has anything been written about
@@ -16,6 +16,8 @@ dixti search <words>    # is there already a note on this topic?
 dixti show <id>         # read one note in full
 dixti note              # write a new one
 dixti init              # scaffold .agents/notes/ and the union-merge line
+
+dixti topic merge a b   # maintenance: fold one topic name into another
 ```
 
 Spec: `spec/FORMAT.md` — read it before touching `src/`.
@@ -39,7 +41,8 @@ write, or multi-agent sharing?** If it does not, it belongs in a different tool.
 
 Four invariants hold everywhere, and a change that breaks one has to say so:
 
-- **Notes are appended, never rewritten in place** — this is what makes `merge=union` safe.
+- **Notes are appended, never rewritten in place** — this is what makes `merge=union` safe. The one
+  exception is `dixti topic merge`, and it is fenced: see Key Decisions.
 - **Unknown metadata keys are preserved, not rejected**, so a newer store parses in an older version.
 - **Nothing derived is committed** — no index, no cache, no build output.
 - **Host adapters contain no logic.** If one host seems to need some, it belongs in `src/`.
@@ -92,6 +95,11 @@ spec/FORMAT.md    THE contract. The only thing expensive to change.
 src/parse.ts      markdown → notes. PURE. Implements §2.
 src/search.ts     notes + query → ranked hits. PURE. Implements §4.
 src/note.ts       a new note → the file write it implies. PURE. Implements §3.
+src/similar.ts    is this note already in the store? PURE. Implements §6.2. NOT search — see below.
+src/supersede.ts  which notes a consolidation retired. PURE. Implements §6.
+src/pending.ts    a stopped write, held rather than lost. PURE.
+src/merge.ts      folding one topic into another → the writes it implies. PURE. Implements §7.
+src/args.ts       flags and positionals. PURE.
 src/dict.ts       notes → the topic list. PURE.
 src/capture.ts    should we ask for a note, and what to ask. PURE. The host-neutral write trigger.
 src/instructions.ts  what an agent needs to know to use the store. PURE. Written into AGENTS.md by init.
@@ -99,15 +107,17 @@ src/adapt.ts      plain markdown → notes, for a corpus with no dixti metadata.
 src/init.ts       plans the scaffold as a list of writes. PURE.
 src/store.ts      reads .agents/notes/ off disk
 src/id.ts         8-hex id generation
-src/cli.ts        argument handling and exit codes — the only module that does IO
+src/cli.ts        dispatch and the read commands — IO
+src/cli-write.ts  the write path: note, topic merge — IO
 hooks/            host adapters + README.md, the integration guide. Adapters reshape strings
                   and contain no logic; anything cleverer belongs in src/capture.ts.
-tests/            69 tests, all against the pure layer
+tests/            149 tests, all against the pure layer
 .agents/notes/    dixti's own notes
 ```
 
-**Everything except `cli.ts` is pure.** That is why every behaviour is testable with no temp
-directory and no fixture repo. Reaching for `fs` inside `search.ts` or `note.ts` would cost that.
+**Everything except `cli.ts` and `cli-write.ts` is pure.** That is why every behaviour is testable
+with no temp directory and no fixture repo. Reaching for `fs` inside `search.ts` or `similar.ts`
+would cost that.
 
 ## Session start — the hook
 `hooks/session-start.sh` is what makes dixti a tool rather than a CLI nobody remembers to run. It is
@@ -169,23 +179,53 @@ search is lexical, so a heading sharing no word with the question is invisible.
   and the fields 0.3.0 dropped do not break notes already on disk.
 - **`search` is a filter, not an oracle.** It exists so an agent can decide *append or start a new
   topic*. The agent reads the results and judges.
+- **Duplicate detection is not search, and must never be built on it.** `search` scales by how much
+  of a *query* matched, because a query is short and half-remembered. `similar.ts` compares two
+  notes, symmetrically, on full heading and body. Feeding a whole note into `search` would collapse
+  its coverage multiplier and score nothing.
+- **A stopped write is held, never discarded.** `dixti note` refuses a likely duplicate — the one
+  place dixti says no. That is only defensible because the note is stashed under a handle and
+  re-offered: bodies arrive on stdin at session end, so a rejected write with nowhere to land means
+  the note is never written at all. Precision is ~25% at the blocking threshold and that is
+  *accepted*, because a false positive costs one command and a duplicate costs every future reader.
+- **`topic merge` rewrites files, and is fenced so that it can.** Append-only exists to make
+  concurrent *agent* writes mergeable. A maintenance command a person runs deliberately is not that
+  case, so it is allowed — but only behind a dry run by default, a refusal on a dirty tree or outside
+  git, and preservation of every id, heading, body and date. Never call it from an agent write path.
 
 ## Current Status
-Spec `0.3.0-draft`. **The loop closes**: the start hook injects the topic list, the agent searches
+Spec `0.4.0-draft`. **The loop closes**: the start hook injects the topic list, the agent searches
 and reads, the stop hook asks for a note at session end.
 
 Verified in a scratch repo dixti had never touched: `init` → `search` (miss, exit 1) → `note` →
 `search` (hit) → `show`. Concurrent writes verified on diverged branches — two agents appending to
 the same topic merged cleanly and all notes survived. Capture hook verified across all four gates:
 fires once, silent when throttled, **silent after a note was written**, fires again when none was.
-55 tests, typecheck clean, zero runtime dependencies.
+149 tests, typecheck clean, zero runtime dependencies.
+
+Consolidation verified end to end in a scratch repo: a duplicate write stopped with exit 2 and was
+held; `--resume --supersedes` wrote it and retired the old note, which vanished from `dict` while
+`show <old-id>` still resolved and pointed forward; `--resume --anyway` wrote it and downgraded to a
+warning. The multi-agent invariant was re-verified *with* consolidation in play — one agent
+superseding a note while another appended to the same file on a diverged branch merged with zero
+conflicts, three notes on disk and two listed.
 
 ## Open problems
 
-1. **`dixti note` reports near-duplicates after writing, not before.** The capture prompt tells the
-   agent to search first, which covers the common case, but nothing enforces it.
-2. **Merging two topics that should be one.** Notes are append-only, so a merge is a rewrite. No good
-   answer yet.
+1. **The duplicate check cannot tell repetition from parallel work.** Measured leave-one-out over a
+   real 467-note corpus: it stops 1 write in 27, and of the nine distinct pairs caught, two were
+   genuine duplicates and seven were the same analysis applied to a different subject — Paris versus
+   Belgium, three reviews of different artefacts on one day. The highest-scoring pair in the whole
+   corpus (0.838, identical headings) is two different cities and outscores every true duplicate, so
+   **no threshold fixes this**: the false positives are textually more alike than the true positives.
+   The design answer is that the agent adjudicates and nothing is lost when it is asked. If that
+   proves too noisy in real use, the next thing to try is a rare-term check — parallel notes each
+   carry a discriminating proper noun the other lacks, true duplicates do not — not a new threshold.
+   The corpus measured is adapted markdown with templated section headings; precision on a native
+   store is probably better and is **unmeasured**.
+2. **Whether being stopped changes what agents write.** The mechanism is verified; its effect on
+   behaviour is not. What to watch: how often `--anyway` is chosen over `--supersedes`, and whether
+   a stopped write is ever simply abandoned.
 3. **Choosing a topic from names alone.** Above a token budget the reader sees topic names plus a few
    sample headings rather than every heading. How well that works in practice is not characterised.
 4. **Search misses on vocabulary substitution.** It is lexical: a heading sharing no word with the

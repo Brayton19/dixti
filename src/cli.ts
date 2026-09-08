@@ -6,15 +6,15 @@ import { homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
 
 import { adaptFile } from "./adapt.js";
+import { excludeList, flagValue, positional } from "./args.js";
+import { cmdNote, cmdTopic } from "./cli-write.js";
 import { capturePrompt, shouldCapture } from "./capture.js";
 import { agentInstructions } from "./instructions.js";
 import { buildDictionary, renderDictionary, topicOf } from "./dict.js";
-import { newId } from "./id.js";
 import { planInit } from "./init.js";
-import { planNote } from "./note.js";
 import type { Note } from "./parse.js";
 import { renderHits, search } from "./search.js";
-import { adviseTopic, renderAdvice } from "./topic.js";
+import { live, supersededBy } from "./supersede.js";
 import { markdownFiles, readNotes, storeExists } from "./store.js";
 
 const USAGE = `dixti — what the agents learned
@@ -24,6 +24,8 @@ usage:
   dixti search <words...>
   dixti show   <id>
   dixti note   --topic <name> --heading <text> [--body <text>]
+               [--supersedes <ids>] [--anyway] [--resume <handle>]
+  dixti topic  merge <from> <to> [--yes]
   dixti capture [--session <id>] [--throttle N] [--force] [--json]
   dixti init   [dir]
   dixti instructions
@@ -31,7 +33,12 @@ usage:
   dict           every note as one line, grouped by topic
   search         is there already a note about this?
   show           read one note in full
-  note           write a new note; body is read from stdin when --body is omitted
+  note           write a new note; body is read from stdin when --body is omitted.
+                 Stops and exits 2 when the note looks like one already in the store, holding it
+                 under a handle: re-run with --resume <handle> plus either --supersedes <id> (one
+                 finding, retire the old note) or --anyway (different findings, similar wording).
+  topic merge    fold one topic into another when a subject ended up under two names. The one
+                 command that rewrites files: dry run unless --yes, and it refuses on a dirty tree.
   capture        print the instruction that asks an agent to write a note, if it is worth asking.
                  Exits 1 and prints nothing when it is not. Wire this into whatever your agent
                  runs at session end — see hooks/README.md. --json reports the decision instead.
@@ -44,26 +51,6 @@ reading another corpus (any tree of ### markdown, e.g. an existing notes repo):
   --dir <dir>         store root; defaults to the working directory
   --title <text>      heading for the list; name the corpus when injecting more than one
 `;
-
-function flagValue(args: string[], name: string): string | null {
-  const i = args.indexOf(name);
-  return i >= 0 ? (args[i + 1] ?? null) : null;
-}
-
-const VALUE_FLAGS = ["--topic", "--budget", "--adapt", "--exclude", "--dir", "--heading", "--body", "--title",
-  "--session", "--throttle"];
-
-function positional(args: string[]): string[] {
-  const skip = new Set<number>();
-  args.forEach((a, i) => {
-    if (VALUE_FLAGS.includes(a)) skip.add(i + 1);
-  });
-  return args.filter((a, i) => !a.startsWith("--") && !skip.has(i));
-}
-
-function excludeList(args: string[]): string[] {
-  return (flagValue(args, "--exclude") ?? "").split(",").map((x) => x.trim()).filter(Boolean);
-}
 
 function root(args: string[]): string {
   return flagValue(args, "--dir") ?? process.cwd();
@@ -132,7 +119,9 @@ function cmdInstructions(): number {
 // ------------------------------------------------------------------ dict / search / show
 
 function cmdDict(args: string[]): number {
-  const notes = load(args);
+  // Superseded notes are hidden from every bulk read: a consolidated note has replaced them, and
+  // showing both is the duplication the consolidation was for.
+  const notes = live(load(args));
   if (notes.length === 0) {
     process.stderr.write(`dixti: no notes yet. Write one with \`dixti note\`.\n`);
     return 1;
@@ -162,7 +151,7 @@ function cmdSearch(args: string[]): number {
     process.stderr.write(`dixti: search needs something to search for\n`);
     return 1;
   }
-  const hits = search(load(args), query);
+  const hits = search(live(load(args)), query);
   process.stdout.write(renderHits(hits, query));
   // Exit 1 on no match, so a script can branch on "nothing written about this yet".
   return hits.length ? 0 : 1;
@@ -174,7 +163,8 @@ function cmdShow(args: string[]): number {
     process.stderr.write(`dixti: show needs a note id\n`);
     return 1;
   }
-  const note = load(args).find((n) => n.id === id);
+  const all = load(args);
+  const note = all.find((n) => n.id === id);
   if (!note) {
     process.stderr.write(`dixti: no note "${id}". Run \`dixti dict\` to see what exists.\n`);
     return 1;
@@ -186,65 +176,18 @@ function cmdShow(args: string[]): number {
       .filter(Boolean)
       .join("  ·  ")}\n\n`,
   );
+  // A superseded note is still readable — it is hidden, not deleted — but a reader who arrived here
+  // from an old link needs to be told where the current answer is.
+  const replacedBy = note.id ? supersededBy(all, note.id) : null;
+  if (replacedBy) {
+    process.stdout.write(
+      `  SUPERSEDED by ${replacedBy.id} — ${replacedBy.heading}\n\n`,
+    );
+  }
+  if (note.meta.supersedes.length) {
+    process.stdout.write(`  replaces ${note.meta.supersedes.join(", ")}\n\n`);
+  }
   process.stdout.write(`${note.body}\n`);
-  return 0;
-}
-
-// ------------------------------------------------------------------ note
-
-function cmdNote(args: string[]): number {
-  const dir = root(args);
-  if (!storeExists(dir)) {
-    process.stderr.write(`dixti: no .agents/ in ${dir} — run \`dixti init\` first.\n`);
-    return 1;
-  }
-
-  const topic = flagValue(args, "--topic");
-  const heading = flagValue(args, "--heading");
-  if (!topic || !heading) {
-    process.stderr.write(`dixti: note needs --topic and --heading\n`);
-    return 1;
-  }
-
-  // The body is read from stdin when not given inline, because a note body is usually longer than a
-  // shell argument wants to be and often contains quotes.
-  let body = flagValue(args, "--body");
-  if (body === null) {
-    body = process.stdin.isTTY ? "" : readFileSync(0, "utf8");
-  }
-  if (!body.trim()) {
-    process.stderr.write(`dixti: note needs a body — pass --body or pipe one in\n`);
-    return 1;
-  }
-
-  const existing = readNotes(dir);
-  const taken = new Set(existing.map((n) => n.id).filter((x): x is string => x !== null));
-
-  // A topic name is a retrieval surface: over budget the reader picks a topic before seeing most
-  // headings. Say what is wrong with a bad one, but never refuse — the note is worth more than the
-  // objection, and a tool that blocks writes gets worked around.
-  const advice = adviseTopic(topic, [...new Set(existing.map(topicOf))]);
-  const plan = planNote({
-    heading,
-    body,
-    topic,
-    id: newId(taken),
-    date: new Date().toISOString().slice(0, 10),
-  });
-
-  const abs = join(dir, plan.path);
-  mkdirSync(dirname(abs), { recursive: true });
-  appendFileSync(abs, plan.content);
-  process.stdout.write(`  wrote  ${plan.path}\n`);
-  process.stdout.write(renderAdvice(topic, advice));
-
-  // A near-duplicate is worth surfacing after the write rather than blocking it: the note is already
-  // safe in the file, and the author can supersede it by hand if it really is the same thing.
-  const similar = search(existing, heading, 3).filter((h) => h.score >= 4);
-  if (similar.length) {
-    process.stdout.write(`\nSimilar notes already existed:\n`);
-    for (const h of similar) process.stdout.write(`  ${h.note.id}  ${h.note.heading}\n`);
-  }
   return 0;
 }
 
@@ -328,7 +271,9 @@ function main(argv: string[]): number {
     case "show":
       return cmdShow(rest);
     case "note":
-      return cmdNote(rest);
+      return cmdNote(rest, root(rest));
+    case "topic":
+      return cmdTopic(rest, root(rest));
     case "capture":
       return cmdCapture(rest);
     case "init":

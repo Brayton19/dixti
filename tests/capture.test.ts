@@ -68,8 +68,15 @@ describe("capturePrompt", () => {
     expect(capturePrompt()).toMatch(/writing nothing is the common, correct/i);
   });
 
-  it("tells the agent to search before writing", () => {
-    expect(capturePrompt()).toMatch(/SEARCH FIRST/);
+  it("tells the agent to look at what exists before writing", () => {
+    expect(capturePrompt()).toMatch(/Look first/);
+    expect(capturePrompt()).toMatch(/search <words>/);
+  });
+
+  it("warns that a write can be stopped, and that nothing is lost when it is", () => {
+    // The agent has to know the refusal is answerable, or it will treat exit 2 as a failed write.
+    expect(capturePrompt()).toMatch(/NOT write/);
+    expect(capturePrompt()).toMatch(/Nothing is lost/i);
   });
 
   it("carries the heading discipline that makes lexical search work", () => {

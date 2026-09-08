@@ -36,9 +36,13 @@ write it down:**
 
     ${bin} note --topic <topic> --heading <a sentence stating the finding> --body <the detail>
 
-Search first. If a note already covers it, do not write a second one. Most sessions learn nothing
-worth recording and that is the normal outcome — a store padded with narration is worse than an
-empty one.
+Look before you write — if a note already covers it, reading it tells you whether you have anything
+to add. dixti also checks as it writes: when a note looks like one already in the store it stops,
+holds yours under a handle, and prints the command to either consolidate the two or declare them
+different. Nothing is lost when it does, so answer it rather than working around it.
+
+Most sessions learn nothing worth recording and that is the normal outcome — a store padded with
+narration is worse than an empty one.
 
 **The heading is the whole product.** It is the only line most readers ever see, in the topic list
 and in every search result, so write it as a sentence that states the finding and use the words

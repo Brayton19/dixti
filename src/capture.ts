@@ -103,10 +103,14 @@ If nothing qualifies, say so in one line and stop. Do not invent one.
 
 If something does:
 
-1. SEARCH FIRST — \`${bin} search <words>\`. If a note already covers it, do not duplicate: say which
-   note, and either stop or write one that adds what is genuinely new.
+1. Look first — \`${bin} search <words>\`. Not as a formality: if a note already covers this, reading
+   it is how you find out whether you have anything to add. If it covers it fully, stop.
 2. Write it — \`${bin} note --topic <topic> --heading <heading> --body <body>\`
    (omit --body to pipe a longer body in on stdin).
+   dixti checks the store as it writes. If your note looks like one that already exists it will
+   NOT write, will hold your note under a handle, and will print two commands: one to consolidate
+   the two into a single note, one to say they are different findings. Nothing is lost either way —
+   read the note it names, decide which is true, and run the command it gives you.
 3. THE HEADING IS THE PRODUCT. It is the only line most readers ever see — in the topic list and in
    every search result. Write it as a standalone sentence stating the finding, not a label.
    "Billing notes" is not a heading. "Refunds re-enter the ledger as a second positive row" is.

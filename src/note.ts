@@ -14,6 +14,8 @@ export interface NoteInput {
   topic: string;
   id: string;
   date: string;
+  /** Ids this note consolidates and replaces. */
+  supersedes?: string[];
 }
 
 export interface WritePlan {
@@ -39,7 +41,13 @@ export function planNote(input: NoteInput): WritePlan {
     id: input.id,
     heading: input.heading.trim(),
     body: input.body.trim(),
-    meta: { topic: input.topic, date: input.date, unknown: {}, line: null },
+    meta: {
+      topic: input.topic,
+      date: input.date,
+      supersedes: input.supersedes ?? [],
+      unknown: {},
+      line: null,
+    },
     file: "",
     line: 0,
   };
